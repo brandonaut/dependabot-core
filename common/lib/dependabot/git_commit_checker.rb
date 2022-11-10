@@ -47,7 +47,7 @@ module Dependabot
       return false if ref.nil?
       return false if branch == ref
       return true if branch
-      return true if dependency.version&.start_with?(ref)
+      return true if dependency_version&.start_with?(ref)
 
       # If the specified `ref` is actually a tag, we're pinned
       return true if local_upload_pack.match?(%r{ refs/tags/#{ref}$})
@@ -147,9 +147,9 @@ module Dependabot
     end
 
     def current_version
-      return unless dependency.version && version_tag?(dependency.version)
+      return unless dependency_version && version_tag?(dependency_version)
 
-      version_from_ref(dependency.version)
+      version_from_ref(dependency_version)
     end
 
     def filter_lower_versions(tags)
@@ -346,7 +346,7 @@ module Dependabot
           # registry
           candidate_dep = Dependency.new(
             name: dependency.name,
-            version: dependency.version,
+            version: dependency_version,
             requirements: [],
             package_manager: dependency.package_manager
           )
@@ -428,6 +428,10 @@ module Dependabot
       return @version_class if @version_class
 
       Utils.version_class_for_package_manager(dependency.package_manager)
+    end
+
+    def dependency_version
+      dependency.version
     end
 
     def requirement_class
