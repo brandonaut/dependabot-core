@@ -14,10 +14,12 @@ RSpec.describe Dependabot::GithubActions::UpdateChecker do
       dependency: dependency,
       dependency_files: [],
       credentials: github_credentials,
+      security_advisories: security_advisories,
       ignored_versions: ignored_versions,
       raise_on_ignored: raise_on_ignored
     )
   end
+  let(:security_advisories) { [] }
   let(:ignored_versions) { [] }
   let(:raise_on_ignored) { false }
 
@@ -509,6 +511,38 @@ RSpec.describe Dependabot::GithubActions::UpdateChecker do
     it { is_expected.to eq("delegate") }
   end
 
+  describe "#lowest_security_fix_version" do
+    subject(:lowest_security_fix_version) { checker.lowest_security_fix_version }
+
+    let(:upload_pack_fixture) { "ghas-to-csv" }
+
+    let(:dependency_version) { "0.4.0" }
+    let(:dependency_name) { "some-natalie/ghas-to-csv" }
+
+    let(:security_advisories) do
+      [
+        Dependabot::SecurityAdvisory.new(
+          dependency_name: dependency_name,
+          package_manager: "github_actions",
+          vulnerable_versions: ["< 1.0"]
+        )
+      ]
+    end
+
+    context "when a supported newer version is available" do
+      it "updates to the least new supported version" do
+        is_expected.to eq(Dependabot::GithubActions::Version.new("1.0.0"))
+      end
+    end
+  end
+
+  describe "#lowest_resolvable_security_fix_version" do
+    subject(:lowest_resolvable_security_fix_version) { checker.lowest_resolvable_security_fix_version }
+
+    before { allow(checker).to receive(:lowest_security_fix_version).and_return("delegate") }
+    it { is_expected.to eq("delegate") }
+  end
+
   describe "#updated_requirements" do
     subject { checker.updated_requirements }
 
@@ -658,6 +692,39 @@ RSpec.describe Dependabot::GithubActions::UpdateChecker do
 
         it { is_expected.to eq(expected_requirements) }
       end
+    end
+
+    context "given a dependency with a vulnerable tag reference" do
+      let(:upload_pack_fixture) { "ghas-to-csv" }
+      let(:dependency_name) { "some-natalie/ghas-to-csv" }
+      let(:reference) { "v0.4.0" }
+
+      let(:security_advisories) do
+        [
+          Dependabot::SecurityAdvisory.new(
+            dependency_name: dependency_name,
+            package_manager: "github_actions",
+            vulnerable_versions: ["< 1.0"]
+          )
+        ]
+      end
+
+      let(:expected_requirements) do
+        [{
+          requirement: nil,
+          groups: [],
+          file: ".github/workflows/workflow.yml",
+          source: {
+            type: "git",
+            url: "https://github.com/#{dependency_name}",
+            ref: "v1",
+            branch: nil
+          },
+          metadata: { declaration_string: "#{dependency_name}@master" }
+        }]
+      end
+
+      it { is_expected.to eq(expected_requirements) }
     end
 
     context "given a dependency with a tag reference with a major version upgrade available" do

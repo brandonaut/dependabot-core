@@ -121,6 +121,10 @@ module Dependabot
       to_local_tag(tag)
     end
 
+    def local_tags_for_allowed_versions
+      allowed_version_tags.map { |t| to_local_tag(t) }
+    end
+
     def max_version_tag(tags)
       tags.
         max_by do |t|
